@@ -5,7 +5,7 @@ markdownify
 
 # YouTube
 youtube-transcript-api
-feedparser        # for the RSS feed
+google-api-python-client
 
 # Utilities
 python-dotenv     # for managing credentials locally
