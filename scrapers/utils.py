@@ -1,6 +1,7 @@
 import json
+import frontmatter
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, date
 
 
 def get_file_path(scraper_name: str, title: str) -> Path:
@@ -10,6 +11,28 @@ def get_file_path(scraper_name: str, title: str) -> Path:
     filepath = Path("files") / scraper_name / f"{safe_title}.md"
     filepath.parent.mkdir(parents=True, exist_ok=True)
     return filepath
+
+
+def write_markdown(
+    filepath: Path,
+    content: str,
+    title: str,
+    url: str,
+    creator: str,
+    source: str,
+    date: date,
+) -> None:
+    post = frontmatter.Post(
+        content=content,
+        title=title,
+        url=url,
+        creator=creator,
+        source=source,
+        date=str(date),
+    )
+
+    with open(filepath, "w") as f:
+        f.write(frontmatter.dumps(post))
 
 
 def load_last_synced(scraper_name: str) -> str | None:
@@ -22,14 +45,14 @@ def load_last_synced(scraper_name: str) -> str | None:
         return None
 
 
-def save_last_synced(scraper_name: str) -> None:
+def save_last_synced(scraper_name: str, date: datetime | None = None) -> None:
     try:
         with open("last_synced.json", "r") as f:
             data = json.load(f)
     except FileNotFoundError:
         data = {}
 
-    data[scraper_name] = datetime.now().isoformat()
+    data[scraper_name] = (date or datetime.now()).isoformat()
 
     with open("last_synced.json", "w") as f:
         json.dump(data, f, indent=4)
