@@ -1,0 +1,12 @@
+# Scraping
+requests
+beautifulsoup4
+playwright
+markdownify
+
+# YouTube
+youtube-transcript-api
+feedparser        # for the RSS feed
+
+# Utilities
+python-dotenv     # for managing credentials locally
