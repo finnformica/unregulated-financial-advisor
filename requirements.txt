@@ -1,6 +1,5 @@
 # Scraping
 requests
-beautifulsoup4
 playwright
 markdownify
 
@@ -10,3 +9,4 @@ feedparser        # for the RSS feed
 
 # Utilities
 python-dotenv     # for managing credentials locally
+python-frontmatter   # for adding frontmatter to markdown files

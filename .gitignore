@@ -4,3 +4,5 @@ __pycache__/
 .env
 
 last_synced.json
+
+files/
