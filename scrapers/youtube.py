@@ -1,5 +1,3 @@
-# scrapers/youtube.py
-
 import os
 import time
 import random
@@ -16,9 +14,14 @@ yt_transcribe_client = YouTubeTranscriptApi()
 
 
 class YouTubeScraper:
-    def __init__(self, handle: str, creator: str):
+    def __init__(self, handle: str, creator: str, full_sync_from: str | None = None):
         self.creator = creator
         self.scraper_name = f"{creator.lower().replace(' ', '_')}_youtube"
+        self.full_sync_from = (
+            datetime.fromisoformat(full_sync_from).replace(tzinfo=None)
+            if full_sync_from
+            else None
+        )
         self.youtube = build("youtube", "v3", developerKey=os.getenv("YOUTUBE_API_KEY"))
         self.channel_id = self._get_channel_id(handle.lstrip("@"))
 
@@ -42,6 +45,9 @@ class YouTubeScraper:
         videos = []
         next_page_token = None
 
+        # On first sync, use full_sync_from as the cutoff if provided
+        cutoff = last_synced or self.full_sync_from
+
         while True:
             response = (
                 self.youtube.playlistItems()
@@ -58,9 +64,9 @@ class YouTubeScraper:
                 snippet = item["snippet"]
                 published_at = datetime.fromisoformat(
                     snippet["publishedAt"].replace("Z", "+00:00")
-                )
+                ).replace(tzinfo=None)
 
-                if last_synced and published_at <= last_synced:
+                if cutoff and published_at <= cutoff:
                     return videos
 
                 videos.append(
@@ -97,7 +103,6 @@ class YouTubeScraper:
 
         print(f"Found {len(videos)} new videos for {self.creator}")
 
-        successful_dates = []
         for video in videos:
             print(f"Scraping: {video['title']}")
 
@@ -116,12 +121,13 @@ class YouTubeScraper:
                 date=video["date"],
             )
 
-            successful_dates.append(video["date"])
-            time.sleep(random.uniform(1, 3))
-
-        if successful_dates:
-            save_last_synced(self.scraper_name, max(successful_dates))
+            save_last_synced(self.scraper_name, video["date"])
+            time.sleep(random.random() + 4)
 
 
 if __name__ == "__main__":
-    YouTubeScraper(handle="@intothecryptoverse", creator="Ben Cowen").run()
+    YouTubeScraper(
+        handle="@intothecryptoverse",
+        creator="Ben Cowen",
+        full_sync_from="2022-06-01",
+    ).run()

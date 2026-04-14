@@ -35,12 +35,16 @@ def write_markdown(
         f.write(frontmatter.dumps(post))
 
 
-def load_last_synced(scraper_name: str) -> str | None:
+def load_last_synced(scraper_name: str) -> datetime | None:
     try:
         with open("last_synced.json", "r") as f:
             data = json.load(f)
             timestamp = data.get(scraper_name, None)
-            return datetime.fromisoformat(timestamp) if timestamp else None
+            return (
+                datetime.fromisoformat(timestamp).replace(tzinfo=None)
+                if timestamp
+                else None
+            )
     except FileNotFoundError:
         return None
 
