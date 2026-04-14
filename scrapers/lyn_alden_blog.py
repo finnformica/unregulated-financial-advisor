@@ -108,6 +108,7 @@ class LynAldenBlogScraper:
         return successful_dates
 
     def run(self) -> None:
+        print("Fetching Lyn Alden blog posts")
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
             context = browser.new_context()
