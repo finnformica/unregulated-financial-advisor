@@ -1,4 +1,5 @@
 import os
+import re
 import time
 import random
 from datetime import datetime
@@ -14,7 +15,13 @@ yt_transcribe_client = YouTubeTranscriptApi()
 
 
 class YouTubeScraper:
-    def __init__(self, handle: str, creator: str, full_sync_from: str | None = None):
+    def __init__(
+        self,
+        handle: str,
+        creator: str,
+        full_sync_from: str | None = None,
+        exclude_filters: dict | None = None,
+    ):
         self.creator = creator
         self.scraper_name = f"{creator.lower().replace(' ', '_')}_youtube"
         self.full_sync_from = (
@@ -22,6 +29,7 @@ class YouTubeScraper:
             if full_sync_from
             else None
         )
+        self.exclude_filters = exclude_filters or {}
         self.youtube = build("youtube", "v3", developerKey=os.getenv("YOUTUBE_API_KEY"))
         self.channel_id = self._get_channel_id(handle.lstrip("@"))
 
@@ -67,7 +75,8 @@ class YouTubeScraper:
                 ).replace(tzinfo=None)
 
                 if cutoff and published_at <= cutoff:
-                    return videos
+                    # Return videos in chronological order (oldest first)
+                    return list(reversed(videos))
 
                 videos.append(
                     {
@@ -81,9 +90,65 @@ class YouTubeScraper:
             if not next_page_token:
                 break
 
-        return videos
+        # Return videos in chronological order (oldest first)
+        return list(reversed(videos))
 
-    def get_transcript(self, video_id: str) -> str | None:
+    def parse_duration(self, duration_str: str) -> int:
+        """Parse ISO 8601 duration format to seconds."""
+        match = re.match(r"PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?", duration_str)
+        if not match:
+            return 0
+        hours = int(match.group(1) or 0)
+        minutes = int(match.group(2) or 0)
+        seconds = int(match.group(3) or 0)
+        return hours * 3600 + minutes * 60 + seconds
+
+    def get_video_details(self, video_ids: list[str]) -> dict:
+        """Fetch video details including duration and livestream status."""
+        details = {}
+        # Process in batches of 50 (API limit)
+        for i in range(0, len(video_ids), 50):
+            batch = video_ids[i : i + 50]
+            response = (
+                self.youtube.videos()
+                .list(
+                    part="contentDetails,snippet,liveStreamingDetails",
+                    id=",".join(batch),
+                )
+                .execute()
+            )
+
+            for item in response["items"]:
+                video_id = item["id"]
+                details[video_id] = {
+                    "duration_seconds": self.parse_duration(
+                        item["contentDetails"]["duration"]
+                    ),
+                    "is_livestream": "liveStreamingDetails" in item
+                    or item["snippet"].get("liveBroadcastContent", "none") != "none",
+                }
+        return details
+
+    def should_skip_video(self, video_details: dict) -> bool:
+        """Determine if a video should be skipped based on filters."""
+        if not self.exclude_filters:
+            return False
+
+        # Check if it's a short (typically < 60 seconds)
+        max_duration = self.exclude_filters.get("max_duration_seconds")
+        if max_duration and video_details["duration_seconds"] <= max_duration:
+            return True
+
+        # Check if it's a livestream
+        if (
+            self.exclude_filters.get("exclude_livestreams")
+            and video_details["is_livestream"]
+        ):
+            return True
+
+        return False
+
+    def get_transcript(self, video_id: str) -> tuple[str | None, bool]:
         try:
             transcript = yt_transcribe_client.fetch(video_id).to_raw_data()
             chunks = []
@@ -91,22 +156,66 @@ class YouTubeScraper:
                 minutes = int(entry["start"]) // 60
                 seconds = int(entry["start"]) % 60
                 chunks.append(f"[{minutes:02d}:{seconds:02d}] {entry['text']}")
-            return "\n".join(chunks)
+            return "\n".join(chunks), False
         except Exception as e:
+            error_msg = str(e).lower()
+            # Check for rate limiting indicators
+            if any(
+                indicator in error_msg
+                for indicator in [
+                    "too many requests",
+                    "rate limit",
+                    "429",
+                    "quota",
+                    "blocked",
+                    "blocking requests",
+                    "forbidden",
+                    "bot detected",
+                    "ip has been blocked",
+                    "ip belonging to a cloud provider",
+                ]
+            ):
+                print(f"\n⚠️  Rate limited or IP blocked by YouTube")
+                return None, True
             print(f"Could not fetch transcript for {video_id}: {e}")
-            return None
+            return None, False
 
     def run(self) -> None:
         last_synced = load_last_synced(self.scraper_name)
         playlist_id = self.get_uploads_playlist_id()
         videos = self.get_video_ids(playlist_id, last_synced)
 
-        print(f"Found {len(videos)} new videos for {self.creator}")
+        if not videos:
+            print(f"No new videos found for {self.creator}")
+            return
 
+        # Get video details for filtering
+        video_ids = [v["id"] for v in videos]
+        video_details = self.get_video_details(video_ids)
+
+        # Filter videos
+        filtered_videos = []
         for video in videos:
-            print(f"Scraping: {video['title']}")
+            if video["id"] not in video_details:
+                continue
+            if self.should_skip_video(video_details[video["id"]]):
+                continue
+            filtered_videos.append(video)
 
-            transcript = self.get_transcript(video["id"])
+        print(f"Found {len(filtered_videos)} new videos for {self.creator}")
+
+        for video in filtered_videos:
+            print(f"Scraping ({video['date'].strftime('%Y-%m-%d')}): {video['title']}")
+
+            transcript, is_rate_limited = self.get_transcript(video["id"])
+
+            if is_rate_limited:
+                print(
+                    f"   Failed on: {video['title']} ({video['date'].strftime('%Y-%m-%d')})"
+                )
+                print(f"   Resume later to continue from this point.")
+                break
+
             if not transcript:
                 continue
 
@@ -121,8 +230,10 @@ class YouTubeScraper:
                 date=video["date"],
             )
 
+            # Update last_synced after each successful video
             save_last_synced(self.scraper_name, video["date"])
-            time.sleep(random.random() + 4)
+            # Sleep 8-13 seconds between videos to avoid rate limiting
+            time.sleep(random.uniform(8, 13))
 
 
 if __name__ == "__main__":
@@ -130,4 +241,8 @@ if __name__ == "__main__":
         handle="@intothecryptoverse",
         creator="Ben Cowen",
         full_sync_from="2022-06-01",
+        exclude_filters={
+            "max_duration_seconds": 60,  # Exclude shorts (< 60 seconds)
+            "exclude_livestreams": True,  # Exclude livestreams
+        },
     ).run()
