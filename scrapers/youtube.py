@@ -135,8 +135,8 @@ class YouTubeScraper:
             return False
 
         # Check if it's a short (typically < 60 seconds)
-        max_duration = self.exclude_filters.get("max_duration_seconds")
-        if max_duration and video_details["duration_seconds"] <= max_duration:
+        min_duration = self.exclude_filters.get("min_duration_seconds")
+        if min_duration and video_details["duration_seconds"] <= min_duration:
             return True
 
         # Check if it's a livestream
@@ -204,8 +204,10 @@ class YouTubeScraper:
 
         print(f"Found {len(filtered_videos)} new videos for {self.creator}")
 
-        for video in filtered_videos:
-            print(f"Scraping ({video['date'].strftime('%Y-%m-%d')}): {video['title']}")
+        for idx, video in enumerate(filtered_videos):
+            print(
+                f"Scraping #{len(filtered_videos) - idx} ({video['date'].strftime('%Y-%m-%d')}): {video['title']}"
+            )
 
             transcript, is_rate_limited = self.get_transcript(video["id"])
 
@@ -242,7 +244,7 @@ if __name__ == "__main__":
         creator="Ben Cowen",
         full_sync_from="2022-06-01",
         exclude_filters={
-            "max_duration_seconds": 60,  # Exclude shorts (< 60 seconds)
-            "exclude_livestreams": True,  # Exclude livestreams
+            "min_duration_seconds": 60,
+            "exclude_livestreams": True,
         },
     ).run()
