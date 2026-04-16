@@ -2,11 +2,19 @@
 requests
 playwright
 markdownify
-
-# YouTube
 youtube-transcript-api
 google-api-python-client
 
+# RAG
+chromadb
+ollama
+
+# Web
+fastapi
+uvicorn
+jinja2
+python-multipart
+
 # Utilities
-python-dotenv     # for managing credentials locally
-python-frontmatter   # for adding frontmatter to markdown files
+python-dotenv
+python-frontmatter

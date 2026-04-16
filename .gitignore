@@ -1,4 +1,17 @@
-venv/
-__pycache__/
-
+# Secrets
 .env
+
+# Python
+__pycache__/
+*.pyc
+
+# Virtualenvs
+venv/
+.venv/
+
+# Persistent stores / scratch
+chroma_db/
+state/
+
+# OS
+.DS_Store
