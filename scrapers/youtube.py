@@ -225,7 +225,10 @@ class YouTubeScraper:
             if not transcript:
                 continue
 
-            filepath = get_file_path(self.scraper_name, video["title"])
+            # Build filename with date to prevent overwrites
+            formatted_date = video["date"].strftime('%Y-%m-%d')
+            title_with_date = f"{video['title']} ({formatted_date})"
+            filepath = get_file_path(self.scraper_name, title_with_date)
             write_markdown(
                 filepath=filepath,
                 content=transcript,

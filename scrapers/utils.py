@@ -6,7 +6,7 @@ from datetime import datetime, date
 
 def get_file_path(scraper_name: str, title: str) -> Path:
     safe_title = "".join(
-        c for c in title if c.isalnum() or c in (" ", "_", "-")
+        c for c in title if c.isalnum() or c in (" ", "_", "-", ".", ":", "'")
     ).rstrip()
     filepath = Path("files") / scraper_name / f"{safe_title}.md"
     filepath.parent.mkdir(parents=True, exist_ok=True)
