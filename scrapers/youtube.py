@@ -20,7 +20,8 @@ class YouTubeScraper:
         handle: str,
         creator: str,
         full_sync_from: str | None = None,
-        exclude_filters: dict | None = None,
+        min_duration_seconds: int = 60,
+        exclude_livestreams: bool = True,
     ):
         self.creator = creator
         self.scraper_name = f"{creator.lower().replace(' ', '_')}_youtube"
@@ -29,7 +30,10 @@ class YouTubeScraper:
             if full_sync_from
             else None
         )
-        self.exclude_filters = exclude_filters or {}
+        self.exclude_filters = {
+            "min_duration_seconds": min_duration_seconds,
+            "exclude_livestreams": exclude_livestreams,
+        }
         self.youtube = build("youtube", "v3", developerKey=os.getenv("YOUTUBE_API_KEY"))
         self.channel_id = self._get_channel_id(handle.lstrip("@"))
 
@@ -243,8 +247,4 @@ if __name__ == "__main__":
         handle="@intothecryptoverse",
         creator="Ben Cowen",
         full_sync_from="2022-06-01",
-        exclude_filters={
-            "min_duration_seconds": 60,
-            "exclude_livestreams": True,
-        },
     ).run()

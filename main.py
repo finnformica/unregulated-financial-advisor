@@ -7,8 +7,4 @@ if __name__ == "__main__":
         handle="@intothecryptoverse",
         creator="Ben Cowen",
         full_sync_from="2022-06-01",
-        exclude_filters={
-            "min_duration_seconds": 60,
-            "exclude_livestreams": True,
-        },
     ).run()
