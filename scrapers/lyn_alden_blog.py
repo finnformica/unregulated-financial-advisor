@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from markdownify import markdownify as md
 from playwright.sync_api import sync_playwright, Page
 
-from utils import get_file_path, load_last_synced, save_last_synced, write_markdown
+from .utils import get_file_path, load_last_synced, save_last_synced, write_markdown
 
 load_dotenv()
 

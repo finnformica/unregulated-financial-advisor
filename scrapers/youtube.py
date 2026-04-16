@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from youtube_transcript_api import YouTubeTranscriptApi
 from googleapiclient.discovery import build
 
-from utils import get_file_path, load_last_synced, save_last_synced, write_markdown
+from .utils import get_file_path, load_last_synced, save_last_synced, write_markdown
 
 load_dotenv()
 
